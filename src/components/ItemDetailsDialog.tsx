@@ -1,304 +1,210 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { InventoryItem, ItemStatus, ITEM_TYPE_LABELS, TowerPosition } from '@/types/inventory';
-import { Package, MapPin, AlertCircle, Edit } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { useEffect } from 'react';
+import { InventoryItem, ItemStatus, ITEM_TYPE_LABELS } from '@/types/inventory';
+import { Package, MapPin, Edit } from 'lucide-react';
 import { EditItemDialog } from './EditItemDialog';
-import { z } from 'zod';
-
-const observationSchema = z.string()
-  .max(1000, 'Observações não podem exceder 1000 caracteres')
-  .trim()
-  .optional();
-
-const statusObservationSchema = z.string()
-  .max(500, 'Observações não podem exceder 500 caracteres')
-  .trim()
-  .optional();
 
 interface ItemDetailsDialogProps {
   item: InventoryItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: () => void;
-  availablePositions?: TowerPosition[];
 }
 
 const STATUS_LABELS: Record<ItemStatus, string> = {
   disponivel: 'Disponível',
   reservado: 'Reservado',
-  avaria: 'Com Avaria'
+  avaria: 'Com Avaria',
+  indisponivel: 'Indisponível'
 };
 
 const STATUS_COLORS: Record<ItemStatus, string> = {
-  disponivel: 'bg-blue-500',
+  disponivel: 'bg-green-500',
   reservado: 'bg-yellow-500',
-  avaria: 'bg-red-500'
+  avaria: 'bg-red-500',
+  indisponivel: 'bg-red-500'
 };
 
-export function ItemDetailsDialog({ item, open, onOpenChange, onUpdate, availablePositions = [] }: ItemDetailsDialogProps) {
-  const [quantidadeReservada, setQuantidadeReservada] = useState(item?.quantidade_reservada || 0);
-  const [quantidadeAvaria, setQuantidadeAvaria] = useState(item?.quantidade_avaria || 0);
-  const [observacoes, setObservacoes] = useState(item?.observacoes || '');
-  const [observacaoReservado, setObservacaoReservado] = useState(item?.observacao_reservado || '');
-  const [observacaoAvaria, setObservacaoAvaria] = useState(item?.observacao_avaria || '');
-  const [saving, setSaving] = useState(false);
+export function ItemDetailsDialog({ item, open, onOpenChange, onUpdate }: ItemDetailsDialogProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-
-  // Update state when item changes
-  useEffect(() => {
-    if (item) {
-      setQuantidadeReservada(item.quantidade_reservada);
-      setQuantidadeAvaria(item.quantidade_avaria);
-      setObservacoes(item.observacoes || '');
-      setObservacaoReservado(item.observacao_reservado || '');
-      setObservacaoAvaria(item.observacao_avaria || '');
-    }
-  }, [item]);
-
-  const handleSave = async () => {
-    if (!item) return;
-
-    // Validar observações
-    const obsValidation = observationSchema.safeParse(observacoes);
-    const obsReservadoValidation = statusObservationSchema.safeParse(observacaoReservado);
-    const obsAvariaValidation = statusObservationSchema.safeParse(observacaoAvaria);
-
-    if (!obsValidation.success) {
-      toast.error(obsValidation.error.issues[0].message);
-      return;
-    }
-
-    if (!obsReservadoValidation.success) {
-      toast.error(obsReservadoValidation.error.issues[0].message);
-      return;
-    }
-
-    if (!obsAvariaValidation.success) {
-      toast.error(obsAvariaValidation.error.issues[0].message);
-      return;
-    }
-
-    const quantidadeDisponivel = item.quantidade - quantidadeReservada - quantidadeAvaria;
-    const quantidadeTotal = quantidadeDisponivel + quantidadeReservada + quantidadeAvaria;
-    
-    if (quantidadeTotal !== item.quantidade) {
-      toast.error(`A soma das quantidades deve ser ${item.quantidade}`);
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from('inventory_items')
-        .update({
-          quantidade_disponivel: quantidadeDisponivel,
-          quantidade_reservada: quantidadeReservada,
-          quantidade_avaria: quantidadeAvaria,
-          observacoes: observacoes || null,
-          observacao_reservado: observacaoReservado || null,
-          observacao_avaria: observacaoAvaria || null
-        })
-        .eq('id', item.id);
-
-      if (error) throw error;
-
-      toast.success('Item atualizado com sucesso!');
-      onUpdate();
-      onOpenChange(false);
-    } catch (error) {
-      toast.error('Erro ao atualizar item');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (!item) return null;
 
   const column = (item as any).position?.column ?? (item as any).position_column;
   const floor = (item as any).position?.floor ?? (item as any).position_floor;
+  const positionStr = item.position?.toString() || `${column}${floor}`;
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
-          <DialogHeader className="space-y-3">
-            <div className="flex items-center justify-between gap-4">
-              <DialogTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Detalhes do Item
-              </DialogTitle>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  setEditDialogOpen(true);
-                  onOpenChange(false);
-                }}
-                className="flex items-center gap-2 shrink-0"
-              >
-                <Edit className="h-4 w-4" />
-                <span className="hidden sm:inline">Editar Item</span>
-                <span className="sm:hidden">Editar</span>
-              </Button>
-            </div>
+        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Detalhes Completos do Item
+            </DialogTitle>
           </DialogHeader>
 
-        <div className="space-y-4 overflow-y-auto pr-2">
-          {/* Item Info */}
-          <div className="p-4 bg-muted/30 rounded-lg space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-lg">{item.codigo}</span>
-              <Badge variant="outline">{ITEM_TYPE_LABELS[item.tipo]}</Badge>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <strong>Quantidade:</strong> {item.quantidade} un.
+          <div className="space-y-6">
+            {/* Header Info */}
+            <div className="p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg border">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="text-2xl font-bold">{item.codigo}</h3>
+                  {item.nome && <p className="text-muted-foreground">{item.nome}</p>}
+                </div>
+                <Badge variant="outline" className="text-base px-3 py-1">
+                  {ITEM_TYPE_LABELS[item.tipo]}
+                  {item.attributes.polegada && ` ${item.attributes.polegada}"`}
+                </Badge>
               </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span>{column}{floor}</span>
+              <div className="flex gap-2">
+                <Badge className={STATUS_COLORS[item.status]}>{STATUS_LABELS[item.status]}</Badge>
+                {item.lote_id && <Badge variant="secondary">Lote: {item.lote_id}</Badge>}
               </div>
-              {item.peso_bruto && (
-                <div>
-                  <strong>Peso Bruto:</strong> {item.peso_bruto} kg
-                </div>
-              )}
-              {item.peso_liquido && (
-                <div>
-                  <strong>Peso Líquido:</strong> {item.peso_liquido} kg
-                </div>
-              )}
-              {item.acabamento && (
-                <div>
-                  <strong>Acabamento:</strong> {item.acabamento}
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Quantidades por Status */}
-          <div className="space-y-3">
-            <Label>Distribuição de Quantidades</Label>
-            <div className="grid gap-3">
-              <div className="space-y-2 p-3 border rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                    <span className="font-medium">Reservado</span>
+            {/* Grid de Informações */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Localização */}
+              <div className="col-span-2 p-4 border rounded-lg">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Localização
+                </h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Empresa/Local:</span>
+                    <p className="font-medium">{positionStr}</p>
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max={item.quantidade}
-                    value={quantidadeReservada}
-                    onChange={(e) => {
-                      const valor = parseInt(e.target.value) || 0;
-                      const total = valor + quantidadeAvaria;
-                      if (total <= item.quantidade) {
-                        setQuantidadeReservada(valor);
-                      }
-                    }}
-                    className="w-20 px-2 py-1 border rounded text-right"
-                  />
+                  {item.usina && (
+                    <div>
+                      <span className="text-muted-foreground">Usina:</span>
+                      <p className="font-medium">{item.usina}</p>
+                    </div>
+                  )}
                 </div>
-                {quantidadeReservada > 0 && (
-                  <Textarea
-                    placeholder="Observações sobre reservados... (máx. 500 caracteres)"
-                    value={observacaoReservado}
-                    onChange={(e) => setObservacaoReservado(e.target.value.slice(0, 500))}
-                    rows={2}
-                    className="text-sm"
-                    maxLength={500}
-                  />
-                )}
               </div>
-              
-              <div className="space-y-2 p-3 border rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-red-500" />
-                    <span className="font-medium">Com Avaria</span>
+
+              {/* Quantidades */}
+              <div className="p-4 border rounded-lg">
+                <h4 className="font-semibold mb-3">Quantidades</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Total:</span>
+                    <span className="font-bold">{item.quantidade}</span>
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max={item.quantidade}
-                    value={quantidadeAvaria}
-                    onChange={(e) => {
-                      const valor = parseInt(e.target.value) || 0;
-                      const total = quantidadeReservada + valor;
-                      if (total <= item.quantidade) {
-                        setQuantidadeAvaria(valor);
-                      }
-                    }}
-                    className="w-20 px-2 py-1 border rounded text-right"
-                  />
+                  <div className="flex justify-between text-green-600 dark:text-green-400">
+                    <span>Disponível:</span>
+                    <span className="font-medium">{item.quantidade_disponivel}</span>
+                  </div>
+                  <div className="flex justify-between text-yellow-600 dark:text-yellow-400">
+                    <span>Reservado:</span>
+                    <span className="font-medium">{item.quantidade_reservada}</span>
+                  </div>
+                  <div className="flex justify-between text-red-600 dark:text-red-400">
+                    <span>Avaria:</span>
+                    <span className="font-medium">{item.quantidade_avaria}</span>
+                  </div>
                 </div>
-                {quantidadeAvaria > 0 && (
-                  <Textarea
-                    placeholder="Observações sobre avarias... (máx. 500 caracteres)"
-                    value={observacaoAvaria}
-                    onChange={(e) => setObservacaoAvaria(e.target.value.slice(0, 500))}
-                    rows={2}
-                    className="text-sm"
-                    maxLength={500}
-                  />
-                )}
               </div>
-              
-              <div className="text-sm text-muted-foreground text-right">
-                Total: {quantidadeReservada + quantidadeAvaria} de {item.quantidade}
-              </div>
+
+              {/* Pesos */}
+              {(item.peso_bruto || item.peso_liquido) && (
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-semibold mb-3">Pesos</h4>
+                  <div className="space-y-2 text-sm">
+                    {item.peso_bruto && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Peso Bruto:</span>
+                        <span className="font-medium">{item.peso_bruto} kg</span>
+                      </div>
+                    )}
+                    {item.peso_liquido && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Peso Líquido:</span>
+                        <span className="font-medium">{item.peso_liquido} kg</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Atributos Técnicos */}
+              {(item.attributes.largura || item.attributes.altura || item.attributes.espessura || item.attributes.tempera) && (
+                <div className="col-span-2 p-4 border rounded-lg">
+                  <h4 className="font-semibold mb-3">Atributos Técnicos</h4>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    {item.attributes.largura && (
+                      <div>
+                        <span className="text-muted-foreground">Largura:</span>
+                        <p className="font-medium">{item.attributes.largura} mm</p>
+                      </div>
+                    )}
+                    {item.attributes.altura && (
+                      <div>
+                        <span className="text-muted-foreground">Altura:</span>
+                        <p className="font-medium">{item.attributes.altura} mm</p>
+                      </div>
+                    )}
+                    {item.attributes.espessura && (
+                      <div>
+                        <span className="text-muted-foreground">Espessura:</span>
+                        <p className="font-medium">{item.attributes.espessura} mm</p>
+                      </div>
+                    )}
+                    {item.attributes.tempera && (
+                      <div>
+                        <span className="text-muted-foreground">Têmpera:</span>
+                        <p className="font-medium">{item.attributes.tempera}</p>
+                      </div>
+                    )}
+                    {item.acabamento && (
+                      <div>
+                        <span className="text-muted-foreground">Acabamento:</span>
+                        <p className="font-medium">{item.acabamento}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Observações */}
+              {item.observacoes && (
+                <div className="col-span-2 p-4 border rounded-lg">
+                  <h4 className="font-semibold mb-2">Observações</h4>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.observacoes}</p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Observações */}
-          <div className="space-y-2">
-            <Label htmlFor="observacoes" className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              Observações
-            </Label>
-            <Textarea
-              id="observacoes"
-              placeholder="Adicione observações sobre este item... (máx. 1000 caracteres)"
-              value={observacoes}
-              onChange={(e) => setObservacoes(e.target.value.slice(0, 1000))}
-              rows={4}
-              maxLength={1000}
-            />
-          </div>
-        </div>
+          <DialogFooter className="flex justify-between">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Fechar
+            </Button>
+            <Button onClick={() => {
+              setEditDialogOpen(true);
+              onOpenChange(false);
+            }}>
+              <Edit className="h-4 w-4 mr-2" />
+              Editar Item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Salvando...' : 'Salvar'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <EditItemDialog
-      item={item}
-      open={editDialogOpen}
-      onOpenChange={setEditDialogOpen}
-      onUpdate={() => {
-        onUpdate();
-        setEditDialogOpen(false);
-      }}
-      availablePositions={availablePositions}
-    />
+      <EditItemDialog
+        item={item}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSuccess={() => {
+          setEditDialogOpen(false);
+          onUpdate();
+        }}
+      />
     </>
   );
 }

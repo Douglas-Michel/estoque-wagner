@@ -10,6 +10,7 @@ import { ptBR } from 'date-fns/locale';
 import { InventoryItem, StockMovement, TowerPosition, ITEM_TYPE_LABELS } from '@/types/inventory';
 import { InventoryStorage, MovementStorage } from '@/lib/storage';
 import { StockEntryForm } from './StockEntryForm';
+import { StockTableView } from './StockTableView';
 import { TowerVisualization } from './TowerVisualization';
 import { SearchForm } from './SearchForm';
 import { MovementsList } from './MovementsList';
@@ -425,27 +426,14 @@ export function InventoryDashboard() {
       case 'search':
         return (
           <div className="animate-fade-in">
-            <SearchForm items={items} onStockExit={handleStockExit} onTransfer={handleTransferItem} />
+            <StockTableView items={items} onUpdate={loadData} />
           </div>
         );
 
       case 'towers':
         return (
           <div className="animate-fade-in">
-            <TowerVisualization positions={positions} onUpdate={loadData} />
-          </div>
-        );
-
-      case 'movements':
-        return (
-          <div className="space-y-4 animate-fade-in">
-            <div className="flex justify-end">
-              <Button onClick={() => navigate('/ordens')} variant="outline" className="flex items-center gap-2">
-                <CheckSquare className="h-4 w-4" />
-                Ver Ordens Emitidas
-              </Button>
-            </div>
-            <MovementsList movements={movements} items={items} />
+            <StockTableView items={items} onUpdate={loadData} showAllByDefault={true} />
           </div>
         );
 

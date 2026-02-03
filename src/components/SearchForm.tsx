@@ -20,9 +20,11 @@ export function SearchForm({ items, onStockExit, onTransfer }: SearchFormProps) 
   const [filterType, setFilterType] = useState<ItemType | 'all'>('all');
   const [filterAcabamento, setFilterAcabamento] = useState<string>('all');
   const [results, setResults] = useState<InventoryItem[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
   const [exitQuantities, setExitQuantities] = useState<{ [key: string]: number }>({});
 
   const handleSearch = () => {
+    setHasSearched(true);
     let filtered = items;
 
     if (searchTerm) {
@@ -80,6 +82,7 @@ export function SearchForm({ items, onStockExit, onTransfer }: SearchFormProps) 
     setFilterType('all');
     setFilterAcabamento('all');
     setResults([]);
+    setHasSearched(false);
   };
 
   const acabamentoOptions = Array.from(new Set(items.map(item => item.acabamento).filter(Boolean)));
@@ -183,7 +186,7 @@ export function SearchForm({ items, onStockExit, onTransfer }: SearchFormProps) 
       </Card>
 
       {/* Active Filters Legend */}
-      {(searchTerm || filterType !== 'all' || filterAcabamento !== 'all') && results.length >= 0 && (
+      {hasSearched && (searchTerm || filterType !== 'all' || filterAcabamento !== 'all') && (
         <Card className="border-industrial-blue/20 bg-card/50">
           <CardContent className="py-3">
             <div className="flex items-center gap-2 flex-wrap">
@@ -222,8 +225,46 @@ export function SearchForm({ items, onStockExit, onTransfer }: SearchFormProps) 
         </Card>
       )}
 
+      {/* Empty State - Before Search */}
+      {!hasSearched && (
+        <Card className="shadow-card border-dashed">
+          <CardContent className="py-12">
+            <div className="text-center space-y-3">
+              <div className="flex justify-center">
+                <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+                  <Search className="h-8 w-8 text-muted-foreground" />
+                </div>
+              </div>
+              <h3 className="text-lg font-medium">Pronto para buscar</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Configure os filtros acima e clique em "Buscar" para encontrar itens no estoque
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No Results */}
+      {hasSearched && results.length === 0 && (
+        <Card className="shadow-card border-dashed">
+          <CardContent className="py-12">
+            <div className="text-center space-y-3">
+              <div className="flex justify-center">
+                <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+                  <Package className="h-8 w-8 text-muted-foreground" />
+                </div>
+              </div>
+              <h3 className="text-lg font-medium">Nenhum item encontrado</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Tente ajustar os filtros ou usar outros termos de busca
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Results */}
-      {results.length > 0 && (
+      {hasSearched && results.length > 0 && (
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

@@ -44,7 +44,7 @@ export function StockEntryForm({ onStockEntry, availablePositions }: StockEntryF
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.codigo || !formData.tipo || !formData.position) {
+    if (!formData.codigo || !formData.tipo) {
       return;
     }
 
@@ -70,11 +70,17 @@ export function StockEntryForm({ onStockEntry, availablePositions }: StockEntryF
       }
     }
 
-    const [column, floor] = formData.position.split('');
+    // Posição padrão se não informada
+    const positionStr = formData.position || 'A1';
+    // Converter para formato de posição (primeiros 2 caracteres ou padrão)
+    const posCode = positionStr.length >= 2 ? positionStr.substring(0, 2) : 'A1';
+    const column = posCode.charAt(0).toUpperCase();
+    const floor = parseInt(posCode.charAt(1)) || 1;
+    
     const position = {
-      column: column as any,
-      floor: parseInt(floor) as any,
-      toString: () => formData.position
+      column: (column >= 'A' && column <= 'H' ? column : 'A') as any,
+      floor: (floor >= 1 && floor <= 4 ? floor : 1) as any,
+      toString: () => formData.position || 'A1'
     };
 
     try {
@@ -266,19 +272,17 @@ export function StockEntryForm({ onStockEntry, availablePositions }: StockEntryF
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="position">Posição de Armazenamento</Label>
-              <Select value={formData.position} onValueChange={(value) => setFormData({ ...formData, position: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma posição" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availablePositions.map((pos) => (
-                    <SelectItem key={`${pos.position.column}${pos.position.floor}`} value={`${pos.position.column}${pos.position.floor}`}>
-                      {pos.position.column}{pos.position.floor} - Disponível
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="position">Empresa/Local de Armazenamento</Label>
+              <Input
+                id="position"
+                value={formData.position}
+                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                placeholder="Ex: ALCAST, BAUX, IBRAME, Galpão 1..."
+                maxLength={50}
+              />
+              <p className="text-xs text-muted-foreground">
+                Nome da empresa ou local onde o material está armazenado
+              </p>
             </div>
 
             <div className="space-y-2">

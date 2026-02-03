@@ -18,7 +18,7 @@ export interface StoragePosition {
   toString(): string;
 }
 
-export type ItemStatus = 'disponivel' | 'reservado' | 'avaria';
+export type ItemStatus = 'disponivel' | 'reservado' | 'avaria' | 'indisponivel';
 
 export interface InventoryItem {
   id: string;
